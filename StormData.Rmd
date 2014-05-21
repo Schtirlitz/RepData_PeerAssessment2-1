@@ -1,0 +1,116 @@
+Impact Analysis: How Severe Weather Events impact the Uinited States 
+========================================================
+
+Synopsis
+--------
+This analysis hopes to find some answers to the following questions:  
+1. What weather events are most harmful with respect to poulation health?  
+2. Which events have the greatest ecomomic consequences?  
+
+These first observations show that tornados are the largest cause of lifes  
+whereas floods generate the biggest finanicial losses
+
+Loading and Processing the Raw Data
+-----------------------------------
+
+The data can be downloaded from [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2). Please uncompress the data with a utility such as   bunzip2 or gunzip. If you wish to rerun these calculations, please use setwd() to set the   working directory to the directory where "StormData.csv" is located. 
+
+```{r}
+storm_table <- read.csv("./StormData.csv", nrow = 1)
+names(storm_table)
+```
+A more detailed description of the columns can be found [here](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+
+For the discussion of damages to person and property only the following columns are   relevant:   
+
+```{r}
+
+storm_table <- read.table("./StormData.csv",header = TRUE, sep = ",", colClasses = c(rep("NULL", 7),"factor", rep("NULL",14), rep("numeric",2), "numeric","factor", "numeric","factor",rep("NULL", 9) ))
+
+names(storm_table)
+
+```
+
+RESULTS
+-------
+### What category of weather has the biggest impact on human lifes? 
+In order to answer this question we aggregate the fatalities and injures by weather type:
+
+```{r}
+# maximum number of rows shown in this publication
+max_row <- 40
+library(plyr)
+ev_table <- ddply(storm_table,"EVTYPE", function(x) colSums(x[c("FATALITIES","INJURIES")]))
+num_rows <- if(nrow(ev_table) > max_row) max_row else nrow(ev_table)
+
+
+```
+The following table displays the `r num_rows` most dangerous weather patterns in the US:
+
+```{r}
+s_data <- ev_table[with(ev_table, order(-ev_table[2],-ev_table[,3])),]
+s_data[1:num_rows,]
+```
+
+To summarize the most deadly weather patterns in the US the 5 highest ranked are display   in a pie chart. All other weather related causes are grouped in "OTHER".
+```{r fig.width=7, fig.height=6}
+
+slices <- c(s_data[1:5,2],sum(s_data[6:nrow(s_data),2]))
+lbls <- c(as.character(s_data$EVTYPE[1]), as.character(s_data$EVTYPE[2]), 
+          as.character(s_data$EVTYPE[3]),as.character(s_data$EVTYPE[4]),as.character(s_data$EVTYPE[5]), "OTHER")
+pie(round(slices/sum(slices)*100), labels = lbls, col=rainbow(length(lbls)), 
+    main="Fatalities by Weather Pattern")
+```
+### What category of weather has the biggest financial impact on the US?
+To answer this question we summarize the damage to property and crop and aggregate the summarized data based on the weather type.
+
+```{r}
+# utility function to aggregate the cost per event
+sum_damage <- function(x){
+    
+    if(toupper(x[5]) == "H") {
+        mul_p <- 100
+    } else if (toupper(x[5]) == "K") {
+        mul_p <- 1000
+    }else if (toupper(x[5]) == "M") {
+        mul_p <- 1000000
+    }else if (toupper(x[5]) == "B") {
+        mul_p <- 1000000000
+    }else{
+         mul_p <- 0   
+    }
+    
+    if(toupper(x[7]) == "H") {
+        mul_c <- 100
+    } else if (toupper(x[7]) == "K") {
+        mul_c <- 1000
+    }else if (toupper(x[7]) == "M") {
+        mul_c <- 1000000
+    }else if (toupper(x[7]) == "B") {
+        mul_c <- 1000000000
+    }else{
+         mul_c <- 0   
+    }
+    (as.numeric(x[4])*mul_p + as.numeric(x[6])*mul_c)/1000000
+}
+
+storm_table$"Sum of Damages in Mil $" <- apply(storm_table,1,function(row) sum_damage(row) )
+ev_table <- ddply(storm_table,"EVTYPE", function(x) colSums(x["Sum of Damages in Mil $"]))
+```
+The following table displays the `r num_rows` weather patterns with the financial impact in the US:
+```{r}
+s_data <- ev_table[with(ev_table, order(-ev_table[2])),]
+s_data[1:num_rows,]
+
+```
+To summarize the most damaging weather patterns in the US the 5 highest ranked are display in a pie chart 
+```{r fig.width=7, fig.height=6}
+
+slices <- c(s_data[1:5,2],sum(s_data[6:nrow(s_data),2]))
+lbls <- c(as.character(s_data$EVTYPE[1]), as.character(s_data$EVTYPE[2]), 
+          as.character(s_data$EVTYPE[3]),as.character(s_data$EVTYPE[4]),as.character(s_data$EVTYPE[5]), "OTHER")
+pie(round(slices/sum(slices)*100), labels = lbls, col=rainbow(length(lbls)), 
+    main="Financial impact by Weather Pattern")
+```
+Note: This date is somewhat skewed as the EVTYPE needs to get cleaned up. As an example "TSTM WIND" and "TSTM WIND (G45)" are considered different types. Also there are EVTYPEs like "Summary September 4", but since most of these have no impact on the results of this lab they were left in the table
+
