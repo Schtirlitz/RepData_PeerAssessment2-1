@@ -1,4 +1,4 @@
-Impact Analysis: How Severe Weather Events impact the Uinited States 
+Impact Analysis: How Severe Weather Events impact the United States 
 ========================================================
 
 Synopsis
